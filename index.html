@@ -1,1 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BCA CR Election 2024</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+    </style>
+    <!-- Firebase Imports -->
+    <script type="module">
+        // Import only the necessary modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, increment, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Global variables provided by the intended canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cr-election-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db = null;
+        let auth = null;
+        let currentUserId = null; 
+        let voterRegNo = null; 
+        let isLocalMode = false; // Flag to indicate if we are running without persistent storage
+
+        // --- Student and Candidate Data ---
+        const studentDataString = `2318381001	2331001	ABHISHEK	Bachelor of Computer Application (BCA) 3 Years
+2318381002	2331002	SNEHLATA	Bachelor of Computer Application (BCA) 3 Years
+2318381003	2331003	RITIK YADAV	Bachelor of Computer Application (BCA) 3 Years
+2318381004	2331004	DIVYA	Bachelor of Computer Application (BCA) 3 Years
+2318381005	2331005	MANISH	Bachelor of Computer Application (BCA) 3 Years
+2318381006	2331006	NIDHI	Bachelor of Computer Application (BCA) 3 Years
+2318381007	2331007	RAJAT	Bachelor of Computer Application (BCA) 3 Years
+2318381008	2331008	RUPESH	Bachelor of Computer Application (BCA) 3 Years
+2318381009	2331009	KIRAN	Bachelor of Computer Application (BCA) 3 Years
+2318381010	2331010	TINKU	Bachelor of Computer Application (BCA) 3 Years
+2318381011	2331011	NEERAJ SHARMA	Bachelor of Computer Application (BCA) 3 Years
+2318381012	2331012	ANJALI KUMARI	Bachelor of Computer Application (BCA) 3 Years
+2318381013	2331013	PRINCE	Bachelor of Computer Application (BCA) 3 Years
+2318381014	2331014	PRINCE	Bachelor of Computer Application (BCA) 3 Years
+2318381015	2331015	MEET SAINI	Bachelor of Computer Application (BCA) 3 Years
+2318381016	2331016	NANCY	Bachelor of Computer Application (BCA) 3 Years
+2318381017	2331017	PRATHAM GIRI	Bachelor of Computer Application (BCA) 3 Years
+2318381018	2331018	ANJALI DHANKHAR	Bachelor of Computer Application (BCA) 3 Years
+2318381019	2331019	SURAJ SINGH	Bachelor of Computer Application (BCA) 3 Years
+2318381020	2331020	TARUN	Bachelor of Computer Application (BCA) 3 Years
+2318381021	2331021	ANKIT KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381022	2331022	PAWAN	Bachelor of Computer Application (BCA) 3 Years
+2318381023	2331023	RAJNI	Bachelor of Computer Application (BCA) 3 Years
+2318381024	2331024	AMAN	Bachelor of Computer Application (BCA) 3 Years
+2318381025	2331025	PRINCE	Bachelor of Computer Application (BCA) 3 Years
+2318381026	2331026	MOHINI	Bachelor of Computer Application (BCA) 3 Years
+2318381027	2331027	MOHIT	Bachelor of Computer Application (BCA) 3 Years
+2318381028	2331028	RAGHAV BANSAL	Bachelor of Computer Application (BCA) 3 Years
+2318381029	2331029	SIDDHI	Bachelor of Computer Application (BCA) 3 Years
+2318381030	2331030	DEEPANSHU	Bachelor of Computer Application (BCA) 3 Years
+2318381031	2331031	AMAN KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381032	2331032	NISHANT CHHILLAR	Bachelor of Computer Application (BCA) 3 Years
+2318381033	2331033	ANNU	Bachelor of Computer Application (BCA) 3 Years
+2318381035	2331035	SANJANA	Bachelor of Computer Application (BCA) 3 Years
+2318381036	2331036	ADITYA SAINI	Bachelor of Computer Application (BCA) 3 Years
+2318381037	2331037	ADITYA	Bachelor of Computer Application (BCA) 3 Years
+2318381038	2331038	DIVIT	Bachelor of Computer Application (BCA) 3 Years
+2318381039	2331039	VIPUL KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381040	2331040	TARUN	Bachelor of Computer Application (BCA) 3 Years
+2318381041	2331041	NEHA	Bachelor of Computer Application (BCA) 3 Years
+2318381042	2331042	MANSHU	Bachelor of Computer Application (BCA) 3 Years
+2318381043	2331043	NISHU	Bachelor of Computer Application (BCA) 3 Years
+2318381044	2331044	KIRTI	Bachelor of Computer Application (BCA) 3 Years
+2318381045	2331045	SHINTU	Bachelor of Computer Application (BCA) 3 Years
+2318381046	2331046	SURBHI	Bachelor of Computer Application (BCA) 3 Years
+2318381047	2331047	CHETAN	Bachelor of Computer Application (BCA) 3 Years
+2318381048	2331048	SHILPA	Bachelor of Computer Application (BCA) 3 Years
+2318381049	2331049	NEHA	Bachelor of Computer Application (BCA) 3 Years
+2318381050	2331050	DIPANSHU	Bachelor of Computer Application (BCA) 3 Years
+2318381051	2331051	KUNAL	Bachelor of Computer Application (BCA) 3 Years
+2318381052	2331052	KANISHK	Bachelor of Computer Application (BCA) 3 Years
+2318381053	2331053	ROSHNI	Bachelor of Computer Application (BCA) 3 Years
+2318381054	2331054	KHUSHI	Bachelor of Computer Application (BCA) 3 Years
+2318381055	2331055	CHIRAG	Bachelor of Computer Application (BCA) 3 Years
+2318381056	2331056	SHIVAM	Bachelor of Computer Application (BCA) 3 Years
+2318381057	2331057	AAKASH	Bachelor of Computer Application (BCA) 3 Years
+2318381058	2331058	KAPIL	Bachelor of Computer Application (BCA) 3 Years
+2318381059	2331059	SAHIL MAHLLA	Bachelor of Computer Application (BCA) 3 Years
+2318381060	2331060	HIMANSHU	Bachelor of Computer Application (BCA) 3 Years
+2318381061	2331061	JATIN KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381062	2331062	KAMAL SINGH	Bachelor of Computer Application (BCA) 3 Years
+2318381063	2331063	MUSKAN	Bachelor of Computer Application (BCA) 3 Years
+2318381064	2331064	SIDHANT	Bachelor of Computer Application (BCA) 3 Years
+2318381065	2331065	MAYANK DALAKOTI	Bachelor of Computer Application (BCA) 3 Years
+2318381066	2331066	YOGESH	Bachelor of Computer Application (BCA) 3 Years
+2318381067	2331067	SHUBHAM	Bachelor of Computer Application (BCA) 3 Years
+2318381068	2331068	NAMAN KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381069	2331069	CHIRAG VERMA	Bachelor of Computer Application (BCA) 3 Years
+2318381070	2331070	NEERAJ VERMA	Bachelor of Computer Application (BCA) 3 Years
+2318381071	2331071	JATIN	Bachelor of Computer Application (BCA) 3 Years
+2318381072	2331072	DEV	Bachelor of Computer Application (BCA) 3 Years
+2318381073	2331073	VIDHAN YADAV	Bachelor of Computer Application (BCA) 3 Years
+2318381074	2331074	KULDEEP	Bachelor of Computer Application (BCA) 3 Years
+2318381075	2331075	DIPESH SAINI	Bachelor of Computer Application (BCA) 3 Years
+2318381076	2331076	ROHIT	Bachelor of Computer Application (BCA) 3 Years
+2318381077	2331077	PARTH	Bachelor of Computer Application (BCA) 3 Years
+2318381078	2331078	VINAY	Bachelor of Computer Application (BCA) 3 Years
+2318381079	2331079	ARMAN	Bachelor of Computer Application (BCA) 3 Years
+2318381080	2331080	NAMAN SHARMA	Bachelor of Computer Application (BCA) 3 Years
+2318381081	2331081	VINAY	Bachelor of Computer Application (BCA) 3 Years
+2318381082	2331082	NAVNEET KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381083	2331083	MOKSHIT SHEORAN	Bachelor of Computer Application (BCA) 3 Years
+2318381084	2331084	LOKESH KUMAR YADAV	Bachelor of Computer Application (BCA) 3 Years
+2318381085	2331085	SURAJ	Bachelor of Computer Application (BCA) 3 Years
+2318381086	2331086	VIVEK	Bachelor of Computer Application (BCA) 3 Years
+2318381087	2331087	ARYAN	Bachelor of Computer Application (BCA) 3 Years
+2318381088	2331088	AYUSHI CHOUDHARY	Bachelor of Computer Application (BCA) 3 Years
+2318381089	2331089	SUMIT SHEORAN	Bachelor of Computer Application (BCA) 3 Years
+2318381090	2331090	VINITA BALHARA	Bachelor of Computer Application (BCA) 3 Years
+2318381091	2331091	NISHU	Bachelor of Computer Application (BCA) 3 Years
+2318381092	2331092	SANJANA	Bachelor of Computer Application (BCA) 3 Years
+2318381093	2331093	RAVI AHLAWAT	Bachelor of Computer Application (BCA) 3 Years
+2318381094	2331094	MANSHVI	Bachelor of Computer Application (BCA) 3 Years
+2318381095	2331095	KOMAL	Bachelor of Computer Application (BCA) 3 Years
+2318381096	2331096	RAHUL	Bachelor of Computer Application (BCA) 3 Years
+2318381097	2331097	SHIVAM BAJAJ	Bachelor of Computer Application (BCA) 3 Years
+2318381098	2331098	DIPANSHU	Bachelor of Computer Application (BCA) 3 Years
+2318381099	2331099	PUNIT	Bachelor of Computer Application (BCA) 3 Years
+2318381100	2331100	RISHABH	Bachelor of Computer Application (BCA) 3 Years
+2318381101	2331101	NEELAM	Bachelor of Computer Application (BCA) 3 Years
+2318381102	2331102	JAI PRAKASH	Bachelor of Computer Application (BCA) 3 Years
+2318381103	2331103	HIMADRI TANAYA MOHAPATRA	Bachelor of Computer Application (BCA) 3 Years
+2318381104	2331104	SUBHAM NEHRA	Bachelor of Computer Application (BCA) 3 Years
+2318381105	2331105	DUSHYANT	Bachelor of Computer Application (BCA) 3 Years
+2318381106	2331106	DIPANSHU	Bachelor of Computer Application (BCA) 3 Years
+2318381107	2331107	SACHIN	Bachelor of Computer Application (BCA) 3 Years
+2318381108	2331108	TAMANNA	Bachelor of Computer Application (BCA) 3 Years
+2318381109	2331109	ANUSHKA	Bachelor of Computer Application (BCA) 3 Years
+2318381110	2331110	JATIN	Bachelor of Computer Application (BCA) 3 Years
+2318381111	2331111	AYUSH BALHARA	Bachelor of Computer Application (BCA) 3 Years
+2318381112	2331112	JATIN	Bachelor of Computer Application (BCA) 3 Years
+2318381113	2331113	GARIMA	Bachelor of Computer Application (BCA) 3 Years
+2318381114	2331114	NITIN	Bachelor of Computer Application (BCA) 3 Years
+2318381115	2331115	RAVI	Bachelor of Computer Application (BCA) 3 Years
+2318381116	2331116	SHARVAN KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381117	2331117	MAYANK	Bachelor of Computer Application (BCA) 3 Years
+2318381118	2331118	JAYANT POONIA	Bachelor of Computer Application (BCA) 3 Years
+2318381119	2331119	LAKSHAY SHARMA	Bachelor of Computer Application (BCA) 3 Years
+2318381120	2331120	ROHIT	Bachelor of Computer Application (BCA) 3 Years
+2318381121	2331121	ANJLI	Bachelor of Computer Application (BCA) 3 Years
+2318381122	2331122	LITIN KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381123	2331123	AMAN KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381124	2331124	HIMANSHI	Bachelor of Computer Application (BCA) 3 Years
+2318381125	2331125	ANKUR DHANKHAR	Bachelor of Computer Application (BCA) 3 Years
+2318381126	2331126	MANJEET	Bachelor of Computer Application (BCA) 3 Years
+2318381127	2331127	ROHIT MEHRA	Bachelor of Computer Application (BCA) 3 Years
+2318381128	2331128	BHAWANA	Bachelor of Computer Application (BCA) 3 Years
+2318381129	2331129	PRITAM	Bachelor of Computer Application (BCA) 3 Years
+2318381130	2331130	SARINA	Bachelor of Computer Application (BCA) 3 Years
+2318381131	2331131	SHIV KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381132	2331132	BHARAT SINGH	Bachelor of Computer Application (BCA) 3 Years
+2318381133	2331133	ANSHIKA	Bachelor of Computer Application (BCA) 3 Years
+2318381134	2331134	VIVEK	Bachelor of Computer Application (BCA) 3 Years
+2318381135	2331135	KARTIK	Bachelor of Computer Application (BCA) 3 Years
+2318381136	2331136	UJJWAL KHATAK	Bachelor of Computer Application (BCA) 3 Years
+2318381137	2331137	RAHUL	Bachelor of Computer Application (BCA) 3 Years
+2318381138	2331138	AMAN KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381139	2331139	RAVI KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381140	2331140	AMAN	Bachelor of Computer Application (BCA) 3 Years
+2318381141	2331141	BHAWIK	Bachelor of Computer Application (BCA) 3 Years
+2318381142	2331142	DEVENDER JANGRA	Bachelor of Computer Application (BCA) 3 Years
+2318381143	2331143	GAUTAM	Bachelor of Computer Application (BCA) 3 Years
+2318381144	2331144	ANSHU	Bachelor of Computer Application (BCA) 3 Years
+2318381145	2331145	MOHIT	Bachelor of Computer Application (BCA) 3 Years
+2318381146	2331146	SAHIL	Bachelor of Computer Application (BCA) 3 Years
+2318381147	2331147	NISHA THAKUR	Bachelor of Computer Application (BCA) 3 Years
+2318381148	2331148	AASHI VERMA	Bachelor of Computer Application (BCA) 3 Years
+2318381149	2331149	NANDINI	Bachelor of Computer Application (BCA) 3 Years
+2318381150	2331150	HARSHITA	Bachelor of Computer Application (BCA) 3 Years
+2318381151	2331152	HITSHRESHTH	Bachelor of Computer Application (BCA) 3 Years
+2318381152	2331153	KASHISH	Bachelor of Computer Application (BCA) 3 Years
+2318381153	2331154	SUNNY	Bachelor of Computer Application (BCA) 3 Years
+2318381154	2331155	KARTIK	Bachelor of Computer Application (BCA) 3 Years
+2318381155	2331156	AADESH	Bachelor of Computer Application (BCA) 3 Years
+2318381156	2331157	DEEPAK	Bachelor of Computer Application (BCA) 3 Years
+2318381157	2331158	YASHASWI SAINI	Bachelor of Computer Application (BCA) 3 Years
+2318381158	2331159	VUPENDER	Bachelor of Computer Application (BCA) 3 Years
+2318381159	2331160	KISHORE KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381160	2331161	NISHA	Bachelor of Computer Application (BCA) 3 Years
+2318381161	2331162	SUMIT KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381162	2331163	CHAHAT	Bachelor of Computer Application (BCA) 3 Years
+2318381163	2331164	KHUSHI	Bachelor of Computer Application (BCA) 3 Years
+2318381164	2331166	YOGITA	Bachelor of Computer Application (BCA) 3 Years
+2318381165	2331167	MAYANK	Bachelor of Computer Application (BCA) 3 Years
+2318381166	2331171	ASHMIT KAUSHIK	Bachelor of Computer Application (BCA) 3 Years
+2318381167	2331172	MD ASHAD	Bachelor of Computer Application (BCA) 3 Years
+2318381168	2331173	KOUSTAV KARMAKAR	Bachelor of Computer Application (BCA) 3 Years
+2318381169	2331174	MANISH KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381170	2331175	HARSHIT	Bachelor of Computer Application (BCA) 3 Years
+2318381171	2331176	HIMANSHU NARWAL	Bachelor of Computer Application (BCA) 3 Years
+2318381172	2331177	VAISHNAVI LOKESH SONI	Bachelor of Computer Application (BCA) 3 Years
+2318381173	2331187	PRACHI	Bachelor of Computer Application (BCA) 3 Years
+2318381174	2331188	RIYA	Bachelor of Computer Application (BCA) 3 Years
+2318381175	2331189	NIKITA	Bachelor of Computer Application (BCA) 3 Years
+2318381176	2331190	ASHISH	Bachelor of Computer Application (BCA) 3 Years
+2318381177	2331191	HIMANI	Bachelor of Computer Application (BCA) 3 Years
+2318381178	2331192	KOMAL	Bachelor of Computer Application (BCA) 3 Years
+2318381179	2331193	ANKIT KUMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381180	2331194	BITTU	Bachelor of Computer Application (BCA) 3 Years
+2318381181	2331195	ANTRA SHARMA	Bachelor of Computer Application (BCA) 3 Years
+2318381182	2331196	SUMIT	Bachelor of Computer Application (BCA) 3 Years
+2318381183	2331197	KARTIK SINGHMAR	Bachelor of Computer Application (BCA) 3 Years
+2318381184	2331198	ANKIT	Bachelor of Computer Application (BCA) 3 Years
+2318381185	2331199	CHEHAK	Bachelor of Computer Application (BCA) 3 Years
+2318381186	2331200	PIYUSH ROHILLA	Bachelor of Computer Application (BCA) 3 Years
+2318381187	2331201	RAHUL	Bachelor of Computer Application (BCA) 3 Years
+2318381188	2331202	PARTH YADAV	Bachelor of Computer Application (BCA) 3 Years`;
+
+        const candidates = ["TINKU", "RUPESH", "NEERAJ SHARMA"];
+        let voterMap = {};
+        let localVoteStatus = {}; // Stores voting status in Local Mode
+        
+        // Initial static results for local mode display
+        let localResults = candidates.map(name => ({ name: name, count: 0 }));
+
+        function parseStudentData(data) {
+            const lines = data.trim().split('\n');
+            const map = {};
+            lines.forEach(line => {
+                const parts = line.split('\t').filter(p => p.trim() !== '');
+                if (parts.length >= 3) {
+                    const regNo = parts[0].trim();
+                    const rollNo = parts[1].trim();
+                    const name = parts[2].trim().toUpperCase();
+                    if (regNo && rollNo) {
+                        map[regNo] = { rollNo, name };
+                    }
+                }
+            });
+            return map;
+        }
+        
+        voterMap = parseStudentData(studentDataString);
+        
+        // --- UI Helper Functions ---
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+            document.getElementById('messageBox').innerHTML = '';
+            document.getElementById('messageBox').classList.add('hidden');
+        }
+
+        function showMessage(text, isError = false) {
+            const msgBox = document.getElementById('messageBox');
+            msgBox.innerHTML = `<strong>${text}</strong>`;
+            msgBox.className = `p-3 rounded-lg text-sm transition-all duration-300 shadow-md ${isError ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-green-100 text-green-800 border border-green-300'}`;
+            msgBox.classList.remove('hidden');
+            if (isError) {
+                 setTimeout(() => msgBox.classList.add('hidden'), 5000);
+            }
+        }
+        
+        // --- Firebase/Local Initialization ---
+        window.onload = async function() {
+            setLogLevel('debug');
+            
+            // Check for required configuration (VS Code will not have this)
+            if (firebaseConfig) {
+                // RUNNING IN PERSISTENT MODE (Intended Canvas/Live Environment)
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            currentUserId = user.uid;
+                            showScreen('loginScreen');
+                            initializeCandidates();
+                        } else {
+                            currentUserId = null;
+                            showMessage("Authentication failed. Please refresh.", true);
+                        }
+                    });
+                } catch (error) {
+                    console.error("Firebase initialization failed, falling back to Local Mode:", error);
+                    setupLocalMode();
+                }
+            } else {
+                // RUNNING IN LOCAL MODE (VS Code)
+                setupLocalMode();
+            }
+        };
+
+        function setupLocalMode() {
+            isLocalMode = true;
+            showMessage("⚠️ Running in **Local Testing Mode**. Votes will NOT be saved.", true);
+            showScreen('loginScreen');
+            renderResults(localResults, 0); // Display initial zeroed results
+        }
+
+
+        // Initialize Candidate vote counts only needed for persistent mode
+        async function initializeCandidates() {
+            if (isLocalMode || !db) return; 
+            const batch = writeBatch(db);
+            const votesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'cr_votes');
+            
+            for (const candidateName of candidates) {
+                const docRef = doc(votesCollectionRef, candidateName);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    batch.set(docRef, { count: 0 });
+                }
+            }
+            try {
+                await batch.commit();
+                startResultsListener();
+            } catch (error) {
+                console.error("Error initializing candidates:", error);
+                showMessage("Error setting up candidates persistence.", true);
+            }
+        }
+
+        // --- Core Application Logic ---
+
+        // 1. Login Handler
+        document.getElementById('loginForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const regNoInput = document.getElementById('regNo').value.trim();
+            const rollNoInput = document.getElementById('rollNo').value.trim();
+
+            if (!regNoInput || !rollNoInput) {
+                showMessage("Please enter both Registration Number and Class Roll Number.", true);
+                return;
+            }
+
+            const voter = voterMap[regNoInput];
+            
+            if (!voter || voter.rollNo !== rollNoInput) {
+                showMessage("Invalid Registration Number or Class Roll Number.", true);
+                return;
+            }
+
+            voterRegNo = regNoInput; 
+            document.getElementById('loggedInUser').textContent = voter.name;
+            
+            // Check voter status based on mode
+            await checkVoterStatus();
+        };
+
+        // 2. Check Voter Status
+        async function checkVoterStatus() {
+            let hasVoted = false;
+
+            if (isLocalMode) {
+                // Local Mode Check: check in local cache
+                hasVoted = localVoteStatus[voterRegNo] === true;
+            } else {
+                // Persistent Mode Check: check Firestore
+                if (!db || !voterRegNo) return; 
+                try {
+                    const voterDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'cr_voters', voterRegNo);
+                    const docSnap = await getDoc(voterDocRef);
+                    hasVoted = docSnap.exists() && docSnap.data().hasVoted === true;
+                } catch (error) {
+                    console.error("Error checking voter status:", error);
+                    showMessage("An error occurred accessing voting status.", true);
+                    return;
+                }
+            }
+            
+            if (hasVoted) {
+                showMessage(`Welcome back, ${voterMap[voterRegNo].name}. You have already cast your vote.`, false);
+                showScreen('resultsScreen');
+            } else {
+                showMessage(`Welcome, ${voterMap[voterRegNo].name}! Please cast your vote below.`, false);
+                showScreen('votingScreen');
+                setupVotingUI();
+            }
+        }
+
+        // 3. Setup Voting UI (Unchanged)
+        function setupVotingUI() {
+            const votingContainer = document.getElementById('candidateList');
+            votingContainer.innerHTML = ''; 
+            
+            candidates.forEach(candidate => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center';
+                
+                const emoji = getCandidateEmoji(candidate);
+                
+                card.innerHTML = `
+                    <div class="text-6xl mb-4">${emoji}</div>
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-4">${candidate}</h3>
+                    <button data-candidate="${candidate}" 
+                            class="vote-button w-full px-6 py-3 bg-blue-600 text-white font-bold rounded-full hover:bg-blue-700 transition duration-300 transform hover:scale-105 shadow-md hover:shadow-lg">
+                        VOTE
+                    </button>
+                `;
+                votingContainer.appendChild(card);
+            });
+
+            document.querySelectorAll('.vote-button').forEach(button => {
+                button.addEventListener('click', handleVote);
+            });
+        }
+        
+        function getCandidateEmoji(name) {
+             switch (name) {
+                case 'TINKU': return '⭐';
+                case 'RUPESH': return '👑';
+                case 'NEERAJ SHARMA': return '💡';
+                default: return '✅';
+             }
+        }
+
+        // 4. Handle Vote Submission
+        async function handleVote(event) {
+            const candidateName = event.target.getAttribute('data-candidate');
+            
+            document.querySelectorAll('.vote-button').forEach(btn => btn.disabled = true);
+            
+            if (isLocalMode) {
+                 // LOCAL MODE: Simulate success and mark as voted
+                 localVoteStatus[voterRegNo] = true;
+                 showMessage(`Your vote for ${candidateName} has been recorded (Local Mode Only).`, false);
+                 
+                 // Update local results for display
+                 const index = localResults.findIndex(r => r.name === candidateName);
+                 if (index !== -1) {
+                     localResults[index].count++;
+                     let totalVotes = localResults.reduce((sum, res) => sum + res.count, 0);
+                     renderResults(localResults, totalVotes);
+                 }
+
+            } else {
+                // PERSISTENT MODE: Commit to Firestore
+                if (!db || !voterRegNo || !candidateName) {
+                    showMessage("Voting failed. Missing application or user ID.", true);
+                    return;
+                }
+                
+                const batch = writeBatch(db);
+                const votesDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'cr_votes', candidateName);
+                const voterDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'cr_voters', voterRegNo);
+                
+                try {
+                    batch.set(votesDocRef, { count: increment(1) }, { merge: true });
+                    batch.set(voterDocRef, { 
+                        hasVoted: true, 
+                        voterName: voterMap[voterRegNo].name,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    await batch.commit();
+                    showMessage(`Your vote for ${candidateName} has been successfully cast!`, false);
+                } catch (error) {
+                    console.error("Error casting vote:", error);
+                    showMessage("A database error occurred during voting. Please try again.", true);
+                    document.querySelectorAll('.vote-button').forEach(btn => btn.disabled = false);
+                    return;
+                }
+            }
+            
+            showScreen('resultsScreen');
+        }
+
+        // 5. Real-time Results Listener (only runs in Persistent Mode)
+        function startResultsListener() {
+            if (isLocalMode || !db) return;
+
+            const votesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'cr_votes');
+            
+            onSnapshot(votesCollectionRef, (snapshot) => {
+                let results = [];
+                let totalVotes = 0;
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const candidateName = doc.id;
+                    const count = data.count || 0;
+                    results.push({ name: candidateName, count: count });
+                    totalVotes += count;
+                });
+                
+                results.sort((a, b) => b.count - a.count);
+                renderResults(results, totalVotes);
+            }, (error) => {
+                console.error("Error listening to results:", error);
+                document.getElementById('resultsContainer').innerHTML = `<p class="text-red-500">Failed to load live results: ${error.message}</p>`;
+            });
+        }
+
+        // 6. Render Results UI (Unchanged)
+        function renderResults(results, totalVotes) {
+            const container = document.getElementById('resultsContainer');
+            if (!container) return;
+            
+            let html = `<h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Election Results (${totalVotes} Total Votes)</h2>`;
+            
+            if (isLocalMode) {
+                 html = `<h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Local Simulation Results (${totalVotes} Total Votes)</h2>`;
+                 html += `<p class="text-sm text-yellow-600 mb-4">Note: These votes are only stored in your browser session.</p>`;
+            }
+
+
+            if (results.length === 0 || totalVotes === 0) {
+                 html += '<p class="text-gray-500">No persistent votes recorded yet.</p>';
+            } else {
+                results.forEach((res, index) => {
+                    const percentage = totalVotes > 0 ? ((res.count / totalVotes) * 100).toFixed(1) : 0;
+                    const emoji = getCandidateEmoji(res.name);
+                    const rankColor = index === 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-200 text-gray-700';
+                    const barColor = index === 0 ? 'bg-blue-600' : 'bg-indigo-400';
+                    
+                    html += `
+                        <div class="mb-6 p-4 rounded-xl bg-white shadow-lg">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <span class="text-xl mr-3">${emoji}</span>
+                                    <span class="text-2xl font-semibold text-gray-800">${res.name}</span>
+                                </div>
+                                <span class="px-3 py-1 text-sm font-bold rounded-full ${rankColor}">${res.count} VOTES</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4">
+                                <div class="${barColor} h-4 rounded-full transition-all duration-700" style="width: ${percentage}%"></div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">${percentage}% of total votes</p>
+                        </div>
+                    `;
+                });
+            }
+            container.innerHTML = html;
+        }
+
+        // --- Logout Handler ---
+        function handleLogout() {
+             if (auth && !isLocalMode) {
+                 auth.signOut().catch(error => {
+                    console.error("Logout error:", error);
+                    showMessage("Logout failed.", true);
+                 });
+             }
+             voterRegNo = null;
+             document.getElementById('regNo').value = '';
+             document.getElementById('rollNo').value = '';
+             document.getElementById('messageBox').classList.add('hidden');
+             showMessage("Successfully logged out.", false);
+             showScreen('loginScreen');
+        }
+
+        document.getElementById('logoutButton').onclick = handleLogout;
+        document.getElementById('logoutButtonResults').onclick = handleLogout;
+
+
+    </script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white p-8 md:p-10 rounded-2xl shadow-2xl">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-blue-600">CR Election 2024</h1>
+            <p class="text-lg text-gray-600 mt-2">BCA Class Representative Voting Portal</p>
+        </header>
+
+        <!-- Dynamic Message Box -->
+        <div id="messageBox" class="hidden mb-6 p-3 rounded-lg text-sm transition-all duration-300 shadow-md"></div>
+
+        <!-- --- Screens Container --- -->
+
+        <!-- 1. Loading Screen (Initial state) -->
+        <div id="loadingScreen" class="screen flex flex-col items-center justify-center h-48">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+            <p class="mt-4 text-gray-600 font-medium">Initializing Portal...</p>
+        </div>
+
+        <!-- 2. Login Screen -->
+        <div id="loginScreen" class="screen hidden">
+            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
+                <h2 class="text-2xl font-bold text-gray-700 mb-4">Voter Login</h2>
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label for="regNo" class="block text-sm font-medium text-gray-700 mb-1">Registration Number (Username)</label>
+                        <input type="text" id="regNo" required placeholder="e.g., 2318381001"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+                    </div>
+                    <div>
+                        <label for="rollNo" class="block text-sm font-medium text-gray-700 mb-1">Class Roll Number (Password)</label>
+                        <input type="password" id="rollNo" required placeholder="e.g., 2331001"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+                    </div>
+                    <button type="submit" 
+                            class="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition duration-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                        Login & Verify
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 3. Voting Screen -->
+        <div id="votingScreen" class="screen hidden">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-2xl font-bold text-gray-700">Cast Your Vote</h2>
+                <button id="logoutButton" class="text-sm text-red-500 hover:text-red-700 font-medium transition duration-150">
+                    Logout
+                </button>
+            </div>
+            <p class="text-gray-500 mb-4">Voting as: <span id="loggedInUser" class="font-semibold text-gray-700"></span></p>
+            
+            <div id="candidateList" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Candidate Cards will be inserted here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- 4. Results Screen -->
+        <div id="resultsScreen" class="screen hidden">
+             <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-2xl font-bold text-gray-700">Election Status</h2>
+                <button id="logoutButtonResults" class="text-sm text-red-500 hover:text-red-700 font-medium transition duration-150">
+                    Logout
+                </button>
+            </div>
+            
+            <div id="resultsContainer">
+                <!-- Results will be displayed here by JavaScript onSnapshot listener -->
+                <p class="text-gray-500">Loading results...</p>
+            </div>
+            
+        </div>
+        
+    </div>
+</body>
+</html>
